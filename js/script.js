@@ -14,10 +14,14 @@ document.addEventListener('click', function(e) {
   if (!header.contains(e.target)) closeMenu();
 });
 
+// ═══════════════════════════════════════════════════
+//  ESTADO GLOBAL
+// ═══════════════════════════════════════════════════
+
 let mascotas = [];      // Arreglo principal de objetos mascota
 let idxEliminar = -1;   // Índice del registro a eliminar (para el modal)
 
-const STORAGE_KEY = 'veterinariachris_mascotas';
+const STORAGE_KEY = 'vetpaw_mascotas';
 
 // Diccionario de emojis y clases de avatar por tipo
 const EMOJIS = {
