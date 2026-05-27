@@ -1,10 +1,25 @@
-// Variable principal donde se almacenan todas las mascotas. Se carga desde localStorage al iniciar la aplicación y se actualiza cada vez que se agrega, edita o elimina una mascota.
-let mascotas = [];
-// Variable utilizada para guardar temporalmente el índice de la mascota que se desea eliminar, para mostrar su nombre en el modal de confirmación y luego eliminarla si se confirma la acción.
-let idxEliminar = -1;
-// Clave utilizada para guardar y recuperar la lista de mascotas en localStorage, asegurando que los datos persistan entre sesiones del navegador.
-const STORAGE_KEY = 'vetpaw_mascotas';
-//Esto permite reutilizar datos fácilmente. Se asigna un emoji y una clase de avatar específica para cada tipo de mascota, lo que facilita la representación visual en la interfaz de usuario.
+// ── MENÚ HAMBURGUESA ──
+function toggleMenu() {
+  const menu = document.getElementById('mobile-menu');
+  const btn  = document.getElementById('hamburger-btn');
+  menu.classList.toggle('open');
+  btn.classList.toggle('active');
+}
+function closeMenu() {
+  document.getElementById('mobile-menu').classList.remove('open');
+  document.getElementById('hamburger-btn').classList.remove('active');
+}
+document.addEventListener('click', function(e) {
+  const header = document.querySelector('.site-header');
+  if (!header.contains(e.target)) closeMenu();
+});
+
+let mascotas = [];      // Arreglo principal de objetos mascota
+let idxEliminar = -1;   // Índice del registro a eliminar (para el modal)
+
+const STORAGE_KEY = 'veterinariachris_mascotas';
+
+// Diccionario de emojis y clases de avatar por tipo
 const EMOJIS = {
   perro:  '🐶',
   gato:   '🐱',
@@ -20,19 +35,40 @@ const AVATAR_CLASSES = {
   ave:    'avatar-ave',
   otro:   'avatar-otro'
 };
-//Carga las mascotas guardadas en localStorage.Si no existen datos, crea un arreglo vacío.
+
+// ═══════════════════════════════════════════════════
+//  localStorage — FUNCIONES REUTILIZABLES
+// ═══════════════════════════════════════════════════
+
+/**
+ * Carga el arreglo de mascotas desde localStorage.
+ * Si no existe, inicializa con arreglo vacío.
+ */
 function cargarStorage() {
   const raw = localStorage.getItem(STORAGE_KEY);
   mascotas = raw ? JSON.parse(raw) : [];
 }
 
+/**
+ * Guarda el arreglo de mascotas en localStorage.
+ */
 function guardarStorage() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(mascotas));
 }
-//Esta función valida que los datos del formulario estén correctos. También muestra errores visuales si falta información.
+
+// ═══════════════════════════════════════════════════
+//  VALIDACIONES — FUNCIÓN REUTILIZABLE
+// ═══════════════════════════════════════════════════
+
+/**
+ * Valida todos los campos del formulario.
+ * Marca los campos inválidos con la clase is-invalid de Bootstrap.
+ * @returns {boolean} true si todo es válido, false si hay errores
+ */
 function validarFormulario() {
   let ok = true;
 
+  // Función interna: marca un campo como válido o inválido
   function mark(id, condicion) {
     const el = document.getElementById(id);
     el.classList.remove('is-invalid', 'is-valid');
@@ -50,11 +86,13 @@ function validarFormulario() {
   const dueno  = document.getElementById('inp-dueno').value.trim();
   const email  = document.getElementById('inp-email').value.trim();
 
+  // Validaciones obligatorias
   mark('inp-nombre', nombre.length >= 2);
   mark('inp-tipo',   tipo !== '');
   mark('inp-edad',   edad !== '' && Number(edad) >= 0 && Number(edad) <= 50);
   mark('inp-dueno',  dueno.length >= 2);
 
+  // Email: solo valida si fue ingresado
   if (email) {
     const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     mark('inp-email', regexEmail.test(email));
@@ -62,7 +100,15 @@ function validarFormulario() {
 
   return ok;
 }
-//Construye un objeto mascota a partir de los datos ingresados en el formulario. Este objeto se utiliza tanto para agregar nuevas mascotas como para actualizar las existentes.
+
+// ═══════════════════════════════════════════════════
+//  CONSTRUIR OBJETO MASCOTA
+// ═══════════════════════════════════════════════════
+
+/**
+ * Lee los campos del formulario y retorna un objeto mascota.
+ * @returns {Object} Objeto con los datos de la mascota
+ */
 function construirObjeto() {
   return {
     id:       Date.now(),
@@ -76,8 +122,15 @@ function construirObjeto() {
     fechaReg: new Date().toLocaleDateString('es-CL')
   };
 }
-//Aquí valido el formulario, creo la mascota,
-// la guardo y actualizo la interfaz automáticamente.
+
+// ═══════════════════════════════════════════════════
+//  GUARDAR — CREAR O EDITAR
+// ═══════════════════════════════════════════════════
+
+/**
+ * Registra una nueva mascota o actualiza una existente.
+ * Lee el campo oculto edit-index para saber si es creación o edición.
+ */
 function guardarMascota() {
   if (!validarFormulario()) {
     mostrarToast('Corrige los campos marcados en rojo.', 'error');
@@ -88,12 +141,13 @@ function guardarMascota() {
   const obj = construirObjeto();
 
   if (idx === -1) {
-    // push() agrega una mascota al arreglo.
+    // CREAR: agregar al arreglo
     mascotas.push(obj);
     mostrarToast(`🐾 ${obj.nombre} registrado correctamente.`, 'success');
   } else {
-    obj.id      = mascotas[idx].id;
-    obj.fechaReg = mascotas[idx].fechaReg;
+    // EDITAR: actualizar objeto en el arreglo
+    obj.id      = mascotas[idx].id;       // conservar id original
+    obj.fechaReg = mascotas[idx].fechaReg; // conservar fecha de registro
     mascotas[idx] = obj;
     mostrarToast(`✏️ ${obj.nombre} actualizado.`, 'success');
   }
@@ -103,7 +157,15 @@ function guardarMascota() {
   renderLista();
   actualizarStats();
 }
-//Esta función se llama cuando el usuario hace clic en "Editar" en una tarjeta de mascota. Carga los datos de esa mascota en el formulario para que puedan ser modificados.
+
+// ═══════════════════════════════════════════════════
+//  EDITAR
+// ═══════════════════════════════════════════════════
+
+/**
+ * Carga los datos de una mascota en el formulario para editarla.
+ * @param {number} idx - Índice de la mascota en el arreglo mascotas
+ */
 function editarMascota(idx) {
   const m = mascotas[idx];
 
@@ -120,6 +182,7 @@ function editarMascota(idx) {
   document.getElementById('btn-label').textContent  = 'Actualizar';
   document.getElementById('btn-cancelar').style.display = '';
 
+  // Limpiar estados de validación del formulario anterior
   ['inp-nombre', 'inp-tipo', 'inp-edad', 'inp-dueno', 'inp-email'].forEach(id => {
     document.getElementById(id).classList.remove('is-invalid', 'is-valid');
   });
@@ -127,18 +190,29 @@ function editarMascota(idx) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// ═══════════════════════════════════════════════════
+//  ELIMINAR
+// ═══════════════════════════════════════════════════
+
+/**
+ * Muestra el modal de confirmación para eliminar una mascota.
+ * @param {number} idx - Índice de la mascota en el arreglo mascotas
+ */
 function pedirEliminar(idx) {
   idxEliminar = idx;
   document.getElementById('modal-pet-name').textContent = mascotas[idx].nombre;
   new bootstrap.Modal(document.getElementById('modal-eliminar')).show();
 }
-//Cuando el usuario confirma que desea eliminar una mascota, esta función la elimina del arreglo, actualiza el almacenamiento y la interfaz, y muestra una notificación.
+
+/**
+ * Confirma y ejecuta la eliminación de la mascota seleccionada.
+ * Usa splice() para eliminarla del arreglo.
+ */
 function confirmarEliminar() {
   if (idxEliminar < 0) return;
 
   const nombre = mascotas[idxEliminar].nombre;
-  // splice() elimina la mascota del arreglo en la posición idxEliminar.
-  mascotas.splice(idxEliminar, 1);
+  mascotas.splice(idxEliminar, 1); // eliminar del arreglo
 
   guardarStorage();
   renderLista();
@@ -149,11 +223,22 @@ function confirmarEliminar() {
   idxEliminar = -1;
 }
 
+// ═══════════════════════════════════════════════════
+//  CANCELAR EDICIÓN
+// ═══════════════════════════════════════════════════
+
 function cancelarEdicion() {
   limpiarFormulario();
   mostrarToast('Edición cancelada.', '');
 }
 
+// ═══════════════════════════════════════════════════
+//  LIMPIAR FORMULARIO — FUNCIÓN REUTILIZABLE
+// ═══════════════════════════════════════════════════
+
+/**
+ * Resetea todos los campos del formulario y su estado visual.
+ */
 function limpiarFormulario() {
   const ids = [
     'inp-nombre', 'inp-tipo', 'inp-edad', 'inp-raza',
@@ -171,7 +256,15 @@ function limpiarFormulario() {
   document.getElementById('btn-label').textContent   = 'Registrar';
   document.getElementById('btn-cancelar').style.display = 'none';
 }
-//permite buscar mascotas según condiciones.
+
+// ═══════════════════════════════════════════════════
+//  BUSCAR / FILTRAR — FUNCIÓN REUTILIZABLE
+// ═══════════════════════════════════════════════════
+
+/**
+ * Filtra el arreglo mascotas según texto buscado y tipo seleccionado.
+ * @returns {Array} Sub-arreglo con las mascotas que coinciden
+ */
 function filtrarMascotas() {
   const query = document.getElementById('inp-buscar').value.trim().toLowerCase();
   const tipo  = document.getElementById('sel-filtro-tipo').value;
@@ -187,19 +280,38 @@ function filtrarMascotas() {
   });
 }
 
+// ═══════════════════════════════════════════════════
+//  CHIPS DE FILTRO RÁPIDO
+// ═══════════════════════════════════════════════════
+
+/**
+ * Activa el chip seleccionado y actualiza el filtro de tipo.
+ * @param {HTMLElement} el  - El chip clickeado
+ * @param {string}      tipo - Valor del tipo a filtrar
+ */
 function setChip(el, tipo) {
   document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('sel-filtro-tipo').value = tipo;
   renderLista();
 }
-//Esta función crea automáticamente las tarjetas de mascotas. Y actualiza el DOM cada vez que se agrega, edita o elimina una mascota.
+
+// ═══════════════════════════════════════════════════
+//  RENDER LISTA — MANIPULACIÓN DEL DOM
+// ═══════════════════════════════════════════════════
+
+/**
+ * Genera dinámicamente las tarjetas de mascotas en el DOM.
+ * Aplica los filtros activos antes de renderizar.
+ */
 function renderLista() {
   const grid  = document.getElementById('pet-grid');
   const lista = filtrarMascotas();
 
+  // Limpiar el contenedor
   grid.innerHTML = '';
 
+  // Estado vacío
   if (lista.length === 0) {
     grid.innerHTML = `
       <div class="empty-state">
@@ -210,11 +322,12 @@ function renderLista() {
     return;
   }
 
+  // Crear una tarjeta por cada mascota filtrada
   lista.forEach((m, i) => {
-    const idxReal = mascotas.indexOf(m);
+    const idxReal = mascotas.indexOf(m); // índice real en el arreglo original
     const emoji   = EMOJIS[m.tipo]        || '🐾';
     const avClass = AVATAR_CLASSES[m.tipo] || 'avatar-otro';
-// Aquí se construye el HTML de cada tarjeta de mascota, utilizando los datos del objeto mascota y aplicando estilos y animaciones para una mejor presentación visual.
+
     const card = document.createElement('div');
     card.className = 'pet-card';
     card.style.animationDelay = `${i * 0.05}s`;
@@ -243,18 +356,41 @@ function renderLista() {
           <i class="bi bi-trash3-fill"></i> Eliminar
         </button>
       </div>`;
-// Finalmente, cada tarjeta se agrega al contenedor principal del grid para mostrar la lista actualizada de mascotas en la interfaz de usuario.
+
     grid.appendChild(card);
   });
 }
-//Actualiza estadísticas del header. Y evita contar dueños repetidos.
+
+// ═══════════════════════════════════════════════════
+//  ESTADÍSTICAS DEL HEADER
+// ═══════════════════════════════════════════════════
+
+/**
+ * Actualiza los contadores del header: total de mascotas y dueños únicos.
+ */
 function actualizarStats() {
   document.getElementById('stat-total').textContent = mascotas.length;
 
+  // Contar dueños únicos usando un Set
   const duenos = new Set(mascotas.map(m => m.dueno.toLowerCase()));
   document.getElementById('stat-duenos').textContent = duenos.size;
+
+  // Sincronizar contadores del menú móvil
+  const tm = document.getElementById('stat-total-m');
+  const dm = document.getElementById('stat-duenos-m');
+  if (tm) tm.textContent = mascotas.length;
+  if (dm) dm.textContent = duenos.size;
 }
-//Muestra mensajes temporales al usuario.
+
+// ═══════════════════════════════════════════════════
+//  TOAST — FUNCIÓN REUTILIZABLE
+// ═══════════════════════════════════════════════════
+
+/**
+ * Muestra una notificación temporal en la esquina inferior derecha.
+ * @param {string} msg  - Mensaje a mostrar
+ * @param {string} tipo - 'success' | 'error' | 'warn' | ''
+ */
 function mostrarToast(msg, tipo = '') {
   const wrap = document.getElementById('toast-wrap');
   const t    = document.createElement('div');
@@ -270,19 +406,33 @@ function mostrarToast(msg, tipo = '') {
   t.innerHTML = `<i class="bi bi-${iconos[tipo] || 'info-circle-fill'}"></i> ${msg}`;
   wrap.appendChild(t);
 
+  // Auto-eliminar después de 3 segundos
   setTimeout(() => {
     t.style.opacity    = '0';
     t.style.transition = 'opacity .4s';
     setTimeout(() => t.remove(), 400);
   }, 3000);
 }
-//Esta función ayuda a proteger el sistema evitando inyección de código malicioso.
+
+// ═══════════════════════════════════════════════════
+//  UTILIDAD — Protección contra XSS
+// ═══════════════════════════════════════════════════
+
+/**
+ * Escapa caracteres especiales HTML para evitar inyección de código.
+ * @param {string} str - Texto a escapar
+ * @returns {string} Texto seguro para insertar en el DOM
+ */
 function escapar(str) {
   const div = document.createElement('div');
   div.appendChild(document.createTextNode(str || ''));
   return div.innerHTML;
 }
 
-cargarStorage();
-renderLista();
-actualizarStats();
+// ═══════════════════════════════════════════════════
+//  INICIALIZACIÓN
+// ═══════════════════════════════════════════════════
+
+cargarStorage();   // 1. Cargar datos desde localStorage
+renderLista();     // 2. Renderizar tarjetas en el DOM
+actualizarStats(); // 3. Actualizar contadores del header
